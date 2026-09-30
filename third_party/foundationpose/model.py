@@ -22,7 +22,6 @@ import time
 import traceback
 
 import cv2
-import foundationpose_cpp
 import numpy as np
 import onnxruntime as ort
 import trimesh
@@ -31,6 +30,37 @@ import triton_python_backend_utils as pb_utils
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
   sys.path.insert(0, current_dir)
+
+import foundationpose_numpy  # pylint: disable=g-import-not-at-top
+
+try:
+  # CUDA/C++ extension from cpp/, packaged in env.tar.gz for Triton.
+  import foundationpose_cpp  # pylint: disable=g-import-not-at-top
+except ImportError:
+  foundationpose_cpp = None
+
+# Selects where inference runs: "auto" (default) uses an available GPU
+# execution provider and falls back to the CPU, "cpu" and "gpu" force it.
+_DEVICE_ENV = "INTRINSIC_INFERENCE_DEVICE"
+_GPU_PROVIDERS = ("CUDAExecutionProvider", "CoreMLExecutionProvider")
+
+
+def _select_providers(device):
+  """Returns the ONNX Runtime execution providers to use for `device`."""
+  available = ort.get_available_providers()
+  gpu = [p for p in _GPU_PROVIDERS if p in available]
+  if device == "cpu":
+    return ["CPUExecutionProvider"]
+  if device == "gpu":
+    if not gpu:
+      raise RuntimeError(
+        f"{_DEVICE_ENV}=gpu, but ONNX Runtime has no GPU execution provider."
+        f" Available providers: {available}"
+      )
+    return gpu + ["CPUExecutionProvider"]
+  if device != "auto":
+    raise ValueError(f"Invalid {_DEVICE_ENV} value: {device!r}")
+  return gpu + ["CPUExecutionProvider"]
 
 
 class TritonPythonModel:
@@ -44,13 +74,13 @@ class TritonPythonModel:
     )
     sys.stderr.flush()
 
-    self.glctx = foundationpose_cpp.RasterizeCudaContext(160, 160, 64)
+    device = os.environ.get(_DEVICE_ENV, "auto").lower()
+    providers = _select_providers(device)
 
     model_dir = os.path.dirname(os.path.abspath(__file__))
     refine_path = os.path.join(model_dir, "foundationpose_refine.onnx")
     score_path = os.path.join(model_dir, "foundationpose_score.onnx")
 
-    providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
     sys.stderr.write(
       "[FoundationPose Triton] Loading ONNX Refine session from"
       f" {refine_path}...\n"
@@ -75,9 +105,36 @@ class TritonPythonModel:
     )
     sys.stderr.flush()
 
+    # ONNX Runtime silently falls back to the CPU if the GPU provider fails to
+    # initialize, so check which provider is actually in use.
+    uses_gpu = self.refine_session.get_providers()[0] in _GPU_PROVIDERS
+    if device == "gpu" and not uses_gpu:
+      raise RuntimeError(
+        f"{_DEVICE_ENV}=gpu, but ONNX Runtime could not initialize a GPU"
+        f" execution provider (using {self.refine_session.get_providers()})."
+      )
+
+    # The C++ helpers are used whenever the extension is available. The CUDA
+    # rasterizer additionally needs a CUDA device, so fall back to the CPU
+    # rasterizer if its initialization fails.
+    self.helpers = foundationpose_cpp or foundationpose_numpy
+    self.glctx = None
+    if foundationpose_cpp is not None and device != "cpu":
+      try:
+        self.glctx = foundationpose_cpp.RasterizeCudaContext(160, 160, 64)
+      except RuntimeError as e:
+        if device == "gpu":
+          raise
+        sys.stderr.write(
+          f"[FoundationPose Triton] CUDA rasterizer unavailable ({e}).\n"
+        )
+    if self.glctx is None:
+      self.glctx = foundationpose_numpy.RasterizeCpuContext(160, 160, 64)
+
     sys.stderr.write(
-      "[FoundationPose Triton] Initialized successfully with ONNX Runtime and"
-      " native C++ CUDA Rasterizer.\n"
+      "[FoundationPose Triton] Initialized successfully with ONNX Runtime"
+      f" providers {self.refine_session.get_providers()} and"
+      f" {type(self.glctx).__name__}.\n"
     )
     sys.stderr.flush()
 
@@ -85,7 +142,7 @@ class TritonPythonModel:
     mask_uint8 = np.ascontiguousarray((mask > 0).astype(np.uint8))
     depth_fp32 = np.ascontiguousarray(depth.astype(np.float32))
     K_fp32 = np.ascontiguousarray(K.astype(np.float32))
-    poses = foundationpose_cpp.sample_initial_poses(
+    poses = self.helpers.sample_initial_poses(
       mask_uint8, depth_fp32, K_fp32, num_views, 60.0
     )
     sys.stderr.write(
@@ -97,7 +154,7 @@ class TritonPythonModel:
   def _compute_crop_window_tf(
     self, poses_np, K, mesh_diameter, crop_ratio=1.2, out_size=(160, 160)
   ):
-    return foundationpose_cpp.compute_crop_window_tf(
+    return self.helpers.compute_crop_window_tf(
       np.ascontiguousarray(poses_np.astype(np.float32)),
       np.ascontiguousarray(K.astype(np.float32)),
       out_size[0],
@@ -456,7 +513,7 @@ class TritonPythonModel:
               trans_delta_np = refine_outs[0].astype(np.float32)
               rot_delta_np = refine_outs[1].astype(np.float32)
 
-              chunk_poses_np = foundationpose_cpp.update_refined_poses(
+              chunk_poses_np = self.helpers.update_refined_poses(
                 chunk_poses_np,
                 trans_delta_np,
                 rot_delta_np,
@@ -492,7 +549,7 @@ class TritonPythonModel:
           mesh_center = (
             (mesh_vertices.min(axis=0) + mesh_vertices.max(axis=0)) / 2.0
           ).astype(np.float32)
-          final_best_pose = foundationpose_cpp.apply_mesh_center_offset(
+          final_best_pose = self.helpers.apply_mesh_center_offset(
             raw_best_pose, mesh_center
           )
 

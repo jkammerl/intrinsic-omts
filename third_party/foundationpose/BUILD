@@ -41,6 +41,7 @@ package_info(
 
 exports_files([
     "LICENSE",
+    "foundationpose_numpy.py",
     "isaac_ros_pose_estimation.BUILD",
     "model.py",
     "nvdiffrast.patch",
