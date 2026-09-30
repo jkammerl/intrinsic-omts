@@ -1,0 +1,13 @@
+--- a/OgreMain/include/Math/Array/NEON/Single/OgreBooleanMask.h
++++ b/OgreMain/include/Math/Array/NEON/Single/OgreBooleanMask.h
+@@ -86,6 +86,10 @@
+     };
+ }
+ 
++// OgreBooleanMask.inl uses vmovemaskq_u32 from OgreMathlibNEON.h. Include it here so
++// that OgreBooleanMask.h can be used on its own, like its SSE2 variant.
++#include "Math/Array/OgreMathlib.h"
++
+ #include "OgreBooleanMask.inl"
+ 
+ #endif

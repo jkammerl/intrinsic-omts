@@ -1,0 +1,13 @@
+--- a/cuda/private/redist_json_helper.bzl
++++ b/cuda/private/redist_json_helper.bzl
+@@ -87,7 +87,9 @@
+     elif _is_windows(ctx):
+         os = "windows"
+ 
+-    arch = "x86_64"  # TODO: support cross compiling
++    # Components are downloaded for the host CPU, since cross compiling is not
++    # supported. NVIDIA calls the arm64 server platform "sbsa".
++    arch = {"aarch64": "sbsa", "arm64": "sbsa"}.get(ctx.os.arch, "x86_64")
+     platform = "{os}-{arch}".format(os = os, arch = arch)
+     all_components_on_platform = [k for k, v in FULL_COMPONENT_NAME.items() if v in redist and platform in redist[v]]
+     components = attr.components if attr.components else all_components_on_platform

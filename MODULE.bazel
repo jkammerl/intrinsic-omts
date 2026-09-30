@@ -60,6 +60,15 @@ single_version_override(
     patches = ["//bazel/patches:zenohc.patch"],
 )
 
+# ogre-next's NEON BooleanMask header misses an include, which breaks the
+# Gazebo build on arm64 hosts. The version matches intrinsic-core's.
+bazel_dep(name = "ogre-next", version = "2.3.3.bcr.6")
+single_version_override(
+    module_name = "ogre-next",
+    patch_strip = 1,
+    patches = ["//bazel/patches:ogre_next_neon_boolean_mask.patch"],
+)
+
 bazel_dep(name = "bazel_skylib", version = "1.9.2")
 bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "abseil-py", version = "2.1.0", repo_name = "com_google_absl_py")
@@ -69,6 +78,14 @@ bazel_dep(name = "pybind11_bazel", version = "3.0.1")
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "rules_cc", version = "0.2.22")
 bazel_dep(name = "rules_cuda", version = "0.3.0")
+
+# rules_cuda 0.3.0 always downloads the x86_64 CUDA redistributables, which
+# cannot be linked on arm64 hosts. Upstream supports other platforms after 0.3.0.
+single_version_override(
+    module_name = "rules_cuda",
+    patch_strip = 1,
+    patches = ["//bazel/patches:rules_cuda_host_arch.patch"],
+)
 bazel_dep(name = "rules_python", version = "1.9.2")
 bazel_dep(name = "toolchains_llvm", version = "1.7.0")
 bazel_dep(name = "googleapis", version = "0.0.0-20260825-d10ac924", repo_name = "com_google_googleapis")
