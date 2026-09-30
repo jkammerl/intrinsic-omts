@@ -75,3 +75,11 @@ common --@rules_cuda//cuda:copts="-D_ALLOW_UNSUPPORTED_LIBCPP"
 common --flag_alias=setup=//:setup
 common:omts --//:setup=omts
 common:lab_bb_01 --//:setup=lab_bb_01
+
+# --config arm64 for building on arm64 hosts; tools/bazel (run by Bazelisk in
+# place of Bazel) applies it automatically on arm64 hosts.
+common:arm64 --cpu=aarch64
+common:arm64 --host_platform=@intrinsic-core//bazel:linux_aarch64
+
+# Local overrides, e.g. --override_module=intrinsic-core=/path/to/intrinsic-core.
+try-import %workspace%/user.bazelrc

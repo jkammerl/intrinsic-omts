@@ -33,7 +33,7 @@ exports_files([
         ("score_onnx", "@foundationpose_score_onnx//file", "foundationpose_score.onnx"),
         ("model_py", "//third_party/foundationpose:model.py", "model.py"),
         ("foundationpose_numpy_py", "//third_party/foundationpose:foundationpose_numpy.py", "foundationpose_numpy.py"),
-        ("env_tar_gz", "//third_party/foundationpose:env_tar_gz", "env.tar.gz"),
+        ("env_tar_gz", "//third_party/foundationpose:env_tar_gz_or_placeholder", "env.tar.gz"),
     ]
 ]
 

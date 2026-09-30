@@ -72,6 +72,7 @@ cuda_library(
         "@isaac_ros_pose_estimation//:nvdiffrast",
     ],
     alwayslink = True,
+    target_compatible_with = ["@platforms//cpu:x86_64"],
 )
 
 cc_binary(
@@ -97,6 +98,7 @@ cc_binary(
     includes = ["cpp"],
     linkopts = ["-Wl,-Bsymbolic"],
     linkshared = True,
+    target_compatible_with = ["@platforms//cpu:x86_64"],
     visibility = ["//visibility:private"],
     deps = [
         ":foundationpose_render_cuda",
@@ -107,8 +109,26 @@ cc_binary(
     ],
 )
 
+# Triton's execution environment with the CUDA extension. It needs CUDA, which
+# is only set up for x86_64. The ONNX Runtime inference server doesn't use it.
 triton_python_env_tar(
     name = "env_tar_gz",
     out = "env.tar.gz",
     so_file = ":foundationpose_cpp.so",
+    target_compatible_with = ["@platforms//cpu:x86_64"],
+)
+
+genrule(
+    name = "empty_env_tar_gz",
+    outs = ["empty_env.tar.gz"],
+    cmd = "tar -czf $@ -T /dev/null",
+)
+
+# The execution environment on x86_64, otherwise an empty placeholder.
+alias(
+    name = "env_tar_gz_or_placeholder",
+    actual = select({
+        "@platforms//cpu:x86_64": ":env_tar_gz",
+        "//conditions:default": ":empty_env_tar_gz",
+    }),
 )

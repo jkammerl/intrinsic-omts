@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+# Copyright 2026 Intrinsic Innovation LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Bazel wrapper, run by Bazelisk in place of Bazel. On arm64 hosts it adds
+# --config=arm64 (see .bazelrc) to commands that accept build options, since
+# .bazelrc cannot select configs by host CPU.
+set -euo pipefail
+
+BAZEL="${BAZEL_REAL:-bazel}"
+
+case "$(uname -m)" in
+  aarch64|arm64) ;;
+  *) exec "${BAZEL}" "$@" ;;
+esac
+
+# Startup options come before the command.
+args=("$@")
+i=0
+while [[ ${i} -lt ${#args[@]} && "${args[${i}]}" == -* ]]; do
+  i=$((i + 1))
+done
+
+if [[ ${i} -lt ${#args[@]} ]]; then
+  case "${args[${i}]}" in
+    aquery|build|coverage|cquery|fetch|info|mobile-install|print_action|query|run|test)
+      exec "${BAZEL}" "${args[@]:0:$((i + 1))}" --config=arm64 "${args[@]:$((i + 1))}"
+      ;;
+  esac
+fi
+exec "${BAZEL}" "$@"

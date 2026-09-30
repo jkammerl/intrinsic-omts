@@ -66,6 +66,7 @@ bazel_dep(name = "abseil-py", version = "2.1.0", repo_name = "com_google_absl_py
 bazel_dep(name = "eigen", version = "5.0.1.bcr.2", repo_name = "com_gitlab_libeigen_eigen")
 bazel_dep(name = "grpc", version = "1.74.1", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "pybind11_bazel", version = "3.0.1")
+bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "rules_cc", version = "0.2.22")
 bazel_dep(name = "rules_cuda", version = "0.3.0")
 bazel_dep(name = "rules_python", version = "1.9.2")
@@ -118,11 +119,17 @@ non_module_deps = use_extension("@intrinsic-core//bazel:non_module_deps.bzl", "n
 use_repo(
     non_module_deps,
     "intrinsic_llvm_sysroot",
+    "intrinsic_llvm_sysroot_aarch64",
 )
 
 llvm.sysroot(
     label = "@intrinsic_llvm_sysroot//:all_files",
     targets = ["linux-x86_64"],
+)
+
+llvm.sysroot(
+    label = "@intrinsic_llvm_sysroot_aarch64//:all_files",
+    targets = ["linux-aarch64"],
 )
 use_repo(llvm, "llvm_toolchain")
 
@@ -210,6 +217,7 @@ pip.parse(
     python_version = "3.12",
     requirements_lock = "//third_party/foundationpose:requirements.txt",
     target_platforms = [
+        "linux_aarch64",
         "linux_x86_64",
     ],
 )
