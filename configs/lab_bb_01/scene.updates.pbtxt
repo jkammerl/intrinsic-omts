@@ -139,6 +139,24 @@ updates {
     }
   }
 }
+# The workpiece stays attached to the gripper after a cycle that grasped it;
+# move it back under root before placing it.
+updates {
+  reparent_object: {
+    object: {
+      by_name: {
+        object_name: "raw_stock_2x3x5"
+      }
+    }
+    new_parent: {
+      reference: {
+        by_name: {
+          object_name: "root"
+        }
+      }
+    }
+  }
+}
 updates {
   update_transform {
     node_a {
