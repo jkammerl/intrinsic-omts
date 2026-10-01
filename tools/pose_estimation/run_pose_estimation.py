@@ -31,6 +31,8 @@ from intrinsic.perception.proto.v1 import pose_estimator_id_pb2
 from intrinsic.perception.skills.multi_view import estimate_pose_multi_view_pb2
 from intrinsic.solutions import deployments, execution, provided
 
+from src.utils import skill_utils
+
 # Global default configuration values
 _DEFAULT_POSE_ESTIMATOR_ID: str = "ai.intrinsic.review_validation"
 _DEFAULT_CAMERA_NAME: str = "orbbec_camera"
@@ -301,11 +303,11 @@ def create_pose_estimation_pipeline(
   )
 
   # 2. Set up estimate_pose_multi_view skill connected to Intrinsic Core Pose Estimator Service
+  estimate_pose_multi_view = skills.ai.intrinsic.estimate_pose_multi_view
   estimate_pose_kwargs: dict[str, Any] = {
-    "camera_1": camera_resource,
-    "camera_2": camera_resource,
-    "camera_3": camera_resource,
-    "camera_4": camera_resource,
+    **skill_utils.multi_view_camera_kwargs(
+      estimate_pose_multi_view, camera_resource
+    ),
     "perception": perception_resource,
     "pose_estimator": pose_estimator_proto,
     "capture_data": [capture_images_skill.result.capture_data],
@@ -315,9 +317,7 @@ def create_pose_estimation_pipeline(
   if timeout_sec is not None and timeout_sec > 0:
     estimate_pose_kwargs["inference_timeout_sec"] = timeout_sec
 
-  estimate_pose_skill = skills.ai.intrinsic.estimate_pose_multi_view(
-    **estimate_pose_kwargs
-  )
+  estimate_pose_skill = estimate_pose_multi_view(**estimate_pose_kwargs)
 
   return capture_images_skill, estimate_pose_skill
 

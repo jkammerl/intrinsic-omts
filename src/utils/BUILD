@@ -37,6 +37,11 @@ py_library(
 )
 
 py_library(
+    name = "skill_utils",
+    srcs = ["skill_utils.py"],
+)
+
+py_library(
     name = "utils",
     srcs = ["__init__.py"],
     deps = [
@@ -44,5 +49,6 @@ py_library(
         ":execution_utils",
         ":math_utils",
         ":script_utils",
+        ":skill_utils",
     ],
 )

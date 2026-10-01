@@ -164,6 +164,15 @@ py_test(
 )
 
 py_test(
+    name = "test_skill_utils",
+    srcs = ["test_skill_utils.py"],
+    deps = [
+        "//src/utils:skill_utils",
+        "@com_google_absl_py//absl/testing:absltest",
+    ],
+)
+
+py_test(
     name = "test_control_gripper",
     srcs = ["test_control_gripper.py"],
     deps = [

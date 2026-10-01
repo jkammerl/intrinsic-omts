@@ -15,6 +15,7 @@ py_library(
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:deployments",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:execution",
         "@intrinsic-core//intrinsic_sdk/intrinsic/solutions:provided",
+        "//src/utils:skill_utils",
         "@intrinsic_apis//intrinsic/perception/proto/v1:pose_estimator_id_py_pb2",
     ],
 )
