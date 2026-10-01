@@ -20,6 +20,8 @@ from typing import Any, TypeVar
 
 import yaml
 
+from src.core.types import GraspPlannerType, Touchdown
+
 _T = TypeVar("_T")
 
 
@@ -186,6 +188,9 @@ class CycleConfig:
       return_touchdown_force_newtons: Force threshold for table placement (N).
       touchdown_timeout_seconds: Timeout for `move_to_contact` actions (s).
       machining_timeout_seconds: Maximum duration to wait for CNC cycle (s).
+      return_shift: Optional configuration for applying a randomized positional
+        shift when returning the workpiece. If None, the object is placed at
+        the exact view frame location.
   """
 
   num_cycles: int
@@ -198,6 +203,44 @@ class CycleConfig:
   return_touchdown_force_newtons: float
   touchdown_timeout_seconds: float
   machining_timeout_seconds: float
+  return_shift: "ReturnShiftConfig | None" = None
+
+
+@dataclasses.dataclass(frozen=True)
+class ReturnShiftConfig:
+  """Parameters for randomizing the placement position of the returned workpiece."""
+
+  center_x: float
+  center_y: float
+  bounds_x: float
+  bounds_y: float
+  bounds_rz_degrees: float = 0.0
+
+
+@dataclasses.dataclass(frozen=True)
+class GraspConfig:
+  """Selects the grasp planning backend used during the infeed pick.
+
+  Attributes:
+      planner: Grasp planner backend. Only `'cuboid_center'` is supported
+        today, which is what OMTS has always done; stating it explicitly means
+        adding a backend later is a config change rather than a code change.
+  """
+
+  planner: str = GraspPlannerType.CUBOID_CENTER.value
+
+  def __post_init__(self) -> None:
+    valid = sorted(member.value for member in GraspPlannerType)
+    if self.planner not in valid:
+      raise ValueError(
+        f"Unsupported grasp planner '{self.planner}' in section 'grasp'. "
+        f"Expected one of {valid}."
+      )
+
+  @property
+  def planner_type(self) -> GraspPlannerType:
+    """Returns `planner` as its enum member."""
+    return GraspPlannerType(self.planner)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -212,6 +255,8 @@ class AppConfig:
       frames: Named world transform frames for motion planning.
       cycle: Cycle execution, force, and timeout parameters.
       machine: Optional CNC enclosure, vise, and handshake configuration.
+      grasp: Grasp planner selection. Defaults to the built-in cuboid-center
+        planner when the section is omitted.
   """
 
   cell_name: str
@@ -221,6 +266,44 @@ class AppConfig:
   frames: FramesConfig
   cycle: CycleConfig
   machine: MachineConfig | None = None
+  grasp: GraspConfig = dataclasses.field(default_factory=GraspConfig)
+
+  @property
+  def pick_touchdown(self) -> Touchdown:
+    """Returns compliant touchdown parameters for picking from the infeed."""
+    return Touchdown(
+      force_n=self.cycle.pick_touchdown_force_newtons,
+      timeout_s=self.cycle.touchdown_timeout_seconds,
+      retract_after_m=self.cycle.retract_distance_meters,
+    )
+
+  @property
+  def load_touchdown(self) -> Touchdown:
+    """Returns compliant touchdown parameters for seating into the CNC vise."""
+    return Touchdown(
+      force_n=self.cycle.load_seat_force_newtons,
+      timeout_s=self.cycle.touchdown_timeout_seconds,
+      retract_after_m=0.0,
+    )
+
+  @property
+  def unload_touchdown(self) -> Touchdown:
+    """Returns compliant touchdown parameters for grasping from the CNC vise."""
+    return Touchdown(
+      force_n=self.cycle.unload_touchdown_force_newtons,
+      standoff_m=0.020 + self.cycle.retract_distance_meters,
+      timeout_s=self.cycle.touchdown_timeout_seconds,
+      retract_after_m=self.cycle.retract_distance_meters,
+    )
+
+  @property
+  def return_touchdown(self) -> Touchdown:
+    """Returns compliant touchdown parameters for returning to the infeed."""
+    return Touchdown(
+      force_n=self.cycle.return_touchdown_force_newtons,
+      timeout_s=self.cycle.touchdown_timeout_seconds,
+      retract_after_m=0.0,
+    )
 
 
 def _construct_section(
@@ -277,6 +360,10 @@ def _construct_section(
     section_dict["sensor_ids"] = tuple(
       int(x) for x in section_dict["sensor_ids"]
     )
+  elif section_name == "cycle" and section_dict.get("return_shift") is not None:
+    section_dict["return_shift"] = ReturnShiftConfig(
+      **section_dict["return_shift"]
+    )
   elif section_name == "machine":
     for joint_key in (
       "door_open_joints",
@@ -319,6 +406,11 @@ def load_app_config(path: str | pathlib.Path) -> AppConfig:
     if "machine" in raw_data and raw_data["machine"] is not None
     else None
   )
+  grasp_config = (
+    _construct_section(GraspConfig, raw_data, "grasp", file_path)
+    if "grasp" in raw_data and raw_data["grasp"] is not None
+    else GraspConfig()
+  )
 
   return AppConfig(
     cell_name=str(raw_data["cell_name"]),
@@ -328,4 +420,5 @@ def load_app_config(path: str | pathlib.Path) -> AppConfig:
     vision=_construct_section(VisionConfig, raw_data, "vision", file_path),
     frames=_construct_section(FramesConfig, raw_data, "frames", file_path),
     cycle=_construct_section(CycleConfig, raw_data, "cycle", file_path),
+    grasp=grasp_config,
   )

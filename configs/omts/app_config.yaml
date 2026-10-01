@@ -50,14 +50,23 @@ frames:
   preplace_vise_frame: "vise_pre_place"
   place_vise_frame: "vise_place"
 
+grasp:
+  planner: "cuboid_center"
+
 cycle:
   num_cycles: 1
   workpiece_id: "raw_stock_2x3x5"
   approach_offset_z: 0.08
   retract_distance_meters: 0.015
-  pick_touchdown_force_newtons: 15.0
-  load_seat_force_newtons: 8.0
-  unload_touchdown_force_newtons: 15.0
-  return_touchdown_force_newtons: 5.0
-  touchdown_timeout_seconds: 40.0
-  machining_timeout_seconds: 2
+  pick_touchdown_force_newtons: 10.0
+  load_seat_force_newtons: 10.0
+  unload_touchdown_force_newtons: 10.0
+  return_touchdown_force_newtons: 10.0
+  touchdown_timeout_seconds: 30.0
+  machining_timeout_seconds: 2.0
+  return_shift:
+    center_x: 0.45
+    center_y: 0.0
+    bounds_x: 0.1
+    bounds_y: 0.1
+    bounds_rz_degrees: 40.0

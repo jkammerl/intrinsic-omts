@@ -18,10 +18,14 @@ and hardware/service configuration manifests (`.textproto`).
   [`src/core/config.py:load_app_config`](../src/core/config.py). Defines robot
   part/frame names, gripper parameters, optional CNC machine DIO pin/joint
   mappings, vision estimator settings, scene frame names, and cycle forces/timeouts.
+  The optional `grasp:` section names the grasp planning backend; it currently
+  accepts only `cuboid_center`, which is also the default when omitted.
 * **`*.updates.pbtxt`**: `ObjectWorldUpdates` protos defining kinematic tree
   attachments (e.g. mounting `gripper` and `orbbec_camera` to `ur_module/flange`),
-  robot base alignment, fixture poses, and named scene frames (`view`,
-  `pre_grasp`, `grasp`, `machine_approach`, `vise_pre_place`, `vise_place`).
+  robot base alignment, fixture poses, named scene frames (`view`,
+  `pre_grasp`, `grasp`, `machine_approach`, `vise_pre_place`, `vise_place`),
+  and cell-specific joint application limits
+  (`omts/ur_module.limits.updates.pbtxt`).
   Can be applied live via `bazel run //tools/world:apply_scene_updates`.
 * **`*.textproto`**: Service configurations for ICON realtime control
   (`icon_config.textproto`), UR hardware module (`ur_module_config.textproto`),

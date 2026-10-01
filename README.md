@@ -15,10 +15,16 @@ The Open Machine Tending Solution (OMTS) is an open-source reference application
 
 ---
 
+## Installation and setup
+
+See the [Getting Started guide](https://github.com/intrinsic-ai/intrinsic-core/tree/main/developer_resources/learn/tutorials/getting_started.md) for full installation and setup instructions.
+
+---
+
 ## High level OMTS architecture
 
 <p align="center">
-  <img src="docs/IntrinsicOMTSArchitecture.png" alt="High Level OMTS Architecture" />
+  <img src="docs/intrinsic_omts_architecture.svg" alt="High Level OMTS Architecture" />
 </p>
 
 See [Architecture.md](docs/ARCHITECTURE.md) for more details.
@@ -32,13 +38,8 @@ The top-level task orchestration engine. Built using the Solution Building Libra
 - **`move_robot`**: Encapsulates constraint-aware motion planning and real-time control to automatically generate collision-free paths and stream optimized trajectories directly to the robot controller, ensuring smooth, deterministic execution without manual waypoint engineering.
 - **`move_to_contact`**: Leverages real-time force/torque feedback to drive compliant, guarded approach motions, automatically arresting or adapting trajectory upon physical contact to ensure safe, damage-free part localization and seating.
 - **`estimate_pose`**: Executes GPU-accelerated 6-DoF pose estimation via NVIDIA FoundationPose® to determine accurate workpiece position and orientation directly from camera feeds, enabling robust grasp planning without rigid physical fixturing.
+- **`hand_e_gripper_cmd_skill`**: Skill to control the Robotiq Hand-E gripper.
 - **`dio_set_output`**: Toggles digital outputs on the I/O controller to automate external hardware signals, such as commanding the CNC machine door to open/close and actuating the vise clamp.
-
----
-
-## Installation and setup
-
-See the [Getting Started guide](https://github.com/intrinsic-ai/intrinsic-core/tree/main/developer_resources/learn/tutorials/getting_started.md) for full installation and setup instructions.
 
 ---
 
@@ -97,33 +98,7 @@ flowchart TD
     INFEED --> CNC_LOAD --> MACHINING --> CNC_UNLOAD --> OUTFEED
 ```
 
-### 2. Repository layout
-
-```text
-omts/
-├── .bazelrc                             # Compiler flags, toolchains, and CUDA settings
-├── .bazelversion                        # Pinned Bazel version (8.x)
-├── MODULE.bazel                         # Bzlmod dependencies (@intrinsic-core, @intrinsic_apis)
-├── BUILD                                # Defines intrinsic_solution(:omts_solution)
-├── configs/                             # Cell YAML configs, .pbtxt updates & service manifests
-│   ├── common/                          # Shared service configs & asset manifests
-│   ├── omts/                            # Production cell (UR5e, CNC enclosure, Schunk vise)
-│   ├── lab_bb_01/                       # Lab cell (UR3e, CAW enclosure, no CNC/vise)
-│   └── kr_10/                           # KUKA KR10 placeholder config
-├── models/                              # SDF/GLB 3D scene assets & manifests
-├── src/                                 # Main OMTS Python package (//src:omts_app)
-│   ├── main.py                          # Application CLI entrypoint
-│   ├── core/                            # Domain models, infeed strategies & YAML config
-│   ├── behaviors/                       # Master Behavior Tree & 5 cycle subtrees
-│   ├── hardware/                        # Robot, Gripper, Machine & Vision SBL adapters
-│   ├── utils/                           # Dynamic frame calculator & script/math helpers
-│   └── foundationpose/                  # Triton config & Bazel MLModel packaging for FoundationPose
-├── third_party/                         # C++/CUDA bindings, model.py & deps for FoundationPose
-├── tools/                               # Commissioning, calibration, jogging & world CLI tools
-└── tests/                               # Offline hermetic unit test suite
-```
-
-### 3. Object-oriented design and SBL abstractions
+### 2. Architecture and SBL abstractions
 
 OMTS adheres to clean separation of concerns:
 
@@ -134,7 +109,7 @@ OMTS adheres to clean separation of concerns:
   - `GridInfeed`: Uses mathematical row/column indexing for structured tray pallets.
 - **Composable Behavior Trees ([`src/behaviors/`](src/behaviors/))**: Modular factory functions returning standard `bt.Node` / `bt.SubTree` building blocks.
 
-### 4. Prerequisites and workspace setup
+### 3. Prerequisites and workspace setup
 
 #### Hardware requirements
 
@@ -150,40 +125,43 @@ OMTS adheres to clean separation of concerns:
 
 #### Workspace and dependencies
 
-Bazel fetches **Intrinsic Core** automatically via [`MODULE.bazel`](MODULE.bazel),
-so no manual `intrinsic-core` checkout is required:
+Bazel downloads the pre-packaged **Intrinsic Core** release archive
+(`intrinsic-core.tar.gz`, which includes all binary assets) automatically via
+[`MODULE.bazel`](MODULE.bazel), so no manual `intrinsic-core` checkout is
+required:
 
 ```python
 bazel_dep(name="intrinsic-core")
-git_override(
+archive_override(
   module_name="intrinsic-core",
-  commit=INTRINSIC_CORE_COMMIT,
-  remote=INTRINSIC_CORE_REMOTE,
+  patch_strip=1,
+  patches=["//bazel/patches:robotiq_hande_finger_offset.patch"],
+  sha256=INTRINSIC_CORE_SHA256,
+  urls=[INTRINSIC_CORE_URL],
 )
 
 bazel_dep(name="intrinsic_apis", version="0.0.1")
-git_override(
+archive_override(
   module_name="intrinsic_apis",
-  commit=INTRINSIC_CORE_COMMIT,
-  remote=INTRINSIC_CORE_REMOTE,
-  strip_prefix="intrinsic_apis",
+  sha256=INTRINSIC_CORE_SHA256,
+  strip_prefix="./intrinsic_apis",
+  urls=[INTRINSIC_CORE_URL],
 )
 ```
 
-**Git LFS** is required on the host machine because Intrinsic Core stores 3D
-meshes, textures, and model weights in Git LFS. Install and enable the smudge
-filter globally before building:
+**Git LFS** is used by this repository for the 3D scene meshes under `models/`
+(`*.glb`). Install and enable the smudge filter before cloning `intrinsic-omts`:
 
 ```bash
 sudo apt-get install git-lfs
 git lfs install
 ```
 
-To move to a different Intrinsic Core revision, update `INTRINSIC_CORE_COMMIT`
-in `MODULE.bazel`. The commit behind a release tag can be resolved with:
+To move to a different Intrinsic Core release, update `INTRINSIC_CORE_RELEASE`
+and `INTRINSIC_CORE_SHA256` in `MODULE.bazel`:
 
 ```bash
-git ls-remote https://github.com/intrinsic-ai/intrinsic-core.git 'refs/tags/<tag>^{}'
+curl -fsSL "https://github.com/intrinsic-ai/intrinsic-core/releases/download/<tag>/intrinsic-core.tar.gz" | sha256sum
 ```
 
 #### GitHub release artifacts
@@ -201,9 +179,9 @@ and model weights from this repository's GitHub Releases (configured in
   [`flowstate_orbbec`](https://github.com/intrinsic-ai/intrinsic-ros-camera-drivers/tree/main/flowstate_orbbec).
 - `segmentation.tar.gz`: Pretrained RF-DETR segmentation model.
 
-### 5. Build and run instructions
+### 4. Build and run instructions
 
-#### 5.1. Deploy the workcell solution
+#### 4.1. Deploy the workcell solution
 
 Build and launch the ICON controller, hardware modules, perception services, and
 simulator:
@@ -216,7 +194,7 @@ bazel run //:omts_solution -c opt -- --address=localhost:17080
 bazel run //:omts_solution -c opt --//:setup=lab_bb_01 -- --address=localhost:17080
 ```
 
-#### 5.2. Apply scene updates (simulation / fresh deployment)
+#### 4.2. Apply scene updates (simulation / fresh deployment)
 
 Push kinematic attachments, robot base alignment, and scene frames to the live
 `ObjectWorld` (pass `--reset_sim` to synchronize Gazebo's `sim_world`):
@@ -227,7 +205,7 @@ bazel run //tools/world:apply_scene_updates -- \
   --reset_sim
 ```
 
-#### 5.3. Register and verify pose estimator (required before running `omts_app`)
+#### 4.3. Register and verify pose estimator (required before running `omts_app`)
 
 Register the FoundationPose estimator for the raw stock workpiece before
 starting the machine tending application:
@@ -237,9 +215,9 @@ bazel run //tools/pose_estimation:register_using_train_service -- \
   --address="localhost:17080" \
   --scene_object_id="ai.intrinsic.raw_stock_2x3x5" \
   --pose_estimator_id="ai.intrinsic.raw_stock_2x3x5_estimator" \
-  --refinement_iters=6 \
-  --confidence_threshold=0.6 \
-  --visibility_threshold=0.6
+  --refinement_iters=3 \
+  --confidence_threshold=0.9 \
+  --visibility_threshold=0.85
 ```
 
 Optionally verify pose detection directly against the live camera feed:
@@ -250,7 +228,7 @@ bazel run //tools/pose_estimation:run_pose_estimation -- \
   --pose_estimator_id=ai.intrinsic.raw_stock_2x3x5_estimator
 ```
 
-#### 5.4. Run the OMTS application
+#### 4.4. Run the OMTS application
 
 Connect to the running deployment and execute the machine tending Behavior Tree:
 
@@ -271,9 +249,16 @@ bazel run //src:omts_app -- \
   --config="configs/omts/app_config.yaml" \
   --num_cycles=3 \
   --simulation_mode=fast_preview
+
+# Override the grasp planner backend (defaults to the `grasp` section of the
+# cell config, which ships as `cuboid_center`):
+bazel run //src:omts_app -- \
+  --address=localhost:17080 \
+  --config="configs/omts/app_config.yaml" \
+  --grasp_planner=cuboid_center
 ```
 
-### 6. Testing and developer tools
+### 5. Testing and developer tools
 
 #### Unit tests
 
@@ -308,7 +293,7 @@ bazel run //tools/gripper:control_gripper -- --address=localhost:17080 --action=
 bazel run //tools/machine:control_machine -- --address=localhost:17080 --action=open_door
 ```
 
-### 7. Code quality and formatting
+### 6. Code quality and formatting
 
 OMTS enforces formatting and linting checks on all pull requests via GitHub
 Actions CI (`line-length = 80`, `indent-width = 2`):
@@ -321,7 +306,7 @@ Actions CI (`line-length = 80`, `indent-width = 2`):
 ./tools/lint.sh
 ```
 
-### 8. Licensing information for NVIDIA FoundationPose®
+### 7. Licensing information for NVIDIA FoundationPose®
 
 OMTS uses the FoundationPose model by NVIDIA for RGB-D pose estimation.
 FoundationPose is packaged into an `MlModelAsset` in
@@ -364,7 +349,7 @@ This project is licensed under the [Apache 2.0 License](LICENSE).
 
 ---
 
-> **Disclaimer**: This is not an officially supported Google product.
+**Disclaimer**: This is not an officially supported Google product.
 
 ---
 

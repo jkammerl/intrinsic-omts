@@ -37,6 +37,14 @@ py_library(
 )
 
 py_library(
+    name = "random_placement",
+    srcs = ["random_placement.py"],
+    deps = [
+        "@intrinsic-core//intrinsic_sdk/intrinsic/math/python:data_types",
+    ],
+)
+
+py_library(
     name = "skill_utils",
     srcs = ["skill_utils.py"],
 )
@@ -48,6 +56,7 @@ py_library(
         ":dynamic_frame_calculator",
         ":execution_utils",
         ":math_utils",
+        ":random_placement",
         ":script_utils",
         ":skill_utils",
     ],
