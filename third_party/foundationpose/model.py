@@ -77,6 +77,12 @@ class TritonPythonModel:
     device = os.environ.get(_DEVICE_ENV, "auto").lower()
     providers = _select_providers(device)
 
+    # The CPU memory arena keeps the peak of the large refine/score batches
+    # (about 6 GB with 128 candidates) for the lifetime of the process;
+    # without it the model stays below 0.3 GB and runs as fast.
+    session_options = ort.SessionOptions()
+    session_options.enable_cpu_mem_arena = False
+
     model_dir = os.path.dirname(os.path.abspath(__file__))
     refine_path = os.path.join(model_dir, "foundationpose_refine.onnx")
     score_path = os.path.join(model_dir, "foundationpose_score.onnx")
@@ -86,7 +92,9 @@ class TritonPythonModel:
       f" {refine_path}...\n"
     )
     sys.stderr.flush()
-    self.refine_session = ort.InferenceSession(refine_path, providers=providers)
+    self.refine_session = ort.InferenceSession(
+      refine_path, session_options, providers=providers
+    )
     sys.stderr.write(
       "[FoundationPose Triton] Refine session providers:"
       f" {self.refine_session.get_providers()}\n"
@@ -98,7 +106,9 @@ class TritonPythonModel:
       f" {score_path}...\n"
     )
     sys.stderr.flush()
-    self.score_session = ort.InferenceSession(score_path, providers=providers)
+    self.score_session = ort.InferenceSession(
+      score_path, session_options, providers=providers
+    )
     sys.stderr.write(
       "[FoundationPose Triton] Score session providers:"
       f" {self.score_session.get_providers()}\n"
