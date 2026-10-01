@@ -84,6 +84,20 @@ def build_unload_machine_subtree(
     ]
   )
 
+  # After grasping, the attached part still touches whatever it rests on (the
+  # vise, or the enclosure's table in cells without a machine).
+  post_attach_collision_pairs = [
+    (config.robot.tool_object_name, workpiece_object_name),
+  ]
+  if vise_object_name:
+    post_attach_collision_pairs.append(
+      (workpiece_object_name, vise_object_name)
+    )
+  if config.robot.enclosure_object_name:
+    post_attach_collision_pairs.append(
+      (config.robot.enclosure_object_name, workpiece_object_name)
+    )
+
   tasks: list[bt.Node] = []
   if machine is not None:
     tasks.extend(
@@ -133,9 +147,7 @@ def build_unload_machine_subtree(
       create_relative_retract_task(
         robot=robot,
         distance_meters=retract_distance_meters,
-        excluded_collision_pairs=[
-          (config.robot.tool_object_name, workpiece_object_name),
-        ],
+        excluded_collision_pairs=post_attach_collision_pairs,
         task_name=f"Linear Retract Clear of Vise ({retract_distance_meters * 100:.1f} cm, -Z Tool)",
       ),
       create_move_to_frame_task(

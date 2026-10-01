@@ -314,7 +314,11 @@ class BehaviorsTest(absltest.TestCase):
         mock.call(
           translation=(0.0, 0.0, -0.015),
           motion_type="LINEAR",
-          excluded_collision_pairs=[("gripper", "raw_stock_2x3x5")],
+          excluded_collision_pairs=[
+            ("gripper", "raw_stock_2x3x5"),
+            ("raw_stock_2x3x5", "schunk_egp_64nnb"),
+            ("enclosure", "raw_stock_2x3x5"),
+          ],
           name="Linear Retract Clear of Vise (1.5 cm, -Z Tool)",
         ),
       ],
