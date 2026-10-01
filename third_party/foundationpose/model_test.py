@@ -341,6 +341,27 @@ class ModelTest(_ModelTestBase):
     np.testing.assert_allclose(translations[0], self.pose[:3, 3], atol=0.03)
     np.testing.assert_array_equal(translations[0], translations[1])
 
+  def test_non_finite_depth_is_treated_as_invalid(self):
+    # Simulated depth cameras report inf (or NaN) where nothing is hit.
+    # They must give the same result as depth 0, FoundationPose's invalid value.
+    model = self.load_model("cpu")
+    outside = self.mask == 0
+    zero_depth = self.depth.copy()
+    zero_depth[outside] = 0
+    expected = self.execute(
+        model, self._request(self.mask[None], DEPTH=zero_depth)
+    )
+    depth = self.depth.copy()
+    depth[outside] = np.inf
+    depth[0, 0] = np.nan
+    response = self.execute(
+        model, self._request(self.mask[None], DEPTH=depth)
+    )
+    self.assertIsNone(response.error)
+    for name, array in response.output_tensors.items():
+      self.assertTrue(np.isfinite(array).all(), name)
+      np.testing.assert_array_equal(array, expected.output_tensors[name])
+
   def test_batch_size_does_not_change_result(self):
     model = self.load_model("cpu")
     full = self.execute(model, self._request(self.mask[None]))
