@@ -1,0 +1,17 @@
+# Builds OMTS on arm64 hosts with the arm64 Intrinsic Core and natively built
+# asset bundles (see https://github.com/jkammerl/native-images for building
+# them). Copy it to user.bazelrc, with ARM64_DIR replaced by the directory
+# that holds the checkouts and native_bundles/:
+#
+#   sed "s|ARM64_DIR|$HOME/arm64|g" arm64.bazelrc.example > user.bazelrc
+
+# Intrinsic Core 20260922.0 with the arm64 changes (branch arm64-20260922.0 of
+# https://github.com/jkammerl/intrinsic-core).
+common --override_module=intrinsic-core=ARM64_DIR/intrinsic-core
+common --override_module=intrinsic_apis=ARM64_DIR/intrinsic-core/intrinsic_apis
+
+# The release's asset bundles, with native images (make_omts_bundles.sh).
+common --override_repository=+gh_release+hand_e_gripper_service_bundle=ARM64_DIR/native_bundles/hand_e_gripper_service_bundle
+common --override_repository=+gh_release+hand_e_gripper_cmd_skill_bundle=ARM64_DIR/native_bundles/hand_e_gripper_cmd_skill_bundle
+common --override_repository=+gh_release+flowstate_ros_bridge_bundle=ARM64_DIR/native_bundles/flowstate_ros_bridge_bundle
+common --override_repository=+gh_release+orbbec_gemini_driver_bundle=ARM64_DIR/native_bundles/orbbec_gemini_driver_bundle
