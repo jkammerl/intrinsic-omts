@@ -108,7 +108,10 @@ class ConfigTest(absltest.TestCase):
     self.assertIsNone(config.frames.transit_frame)
     self.assertEqual(config.vision.min_safe_z, 0.60)
     self.assertEqual(config.cycle.pick_touchdown_force_newtons, 15.0)
-    self.assertIsNone(config.robot.enclosure_object_name)
+    self.assertEqual(config.cycle.return_standoff_meters, 0.10)
+    self.assertEqual(config.return_touchdown.standoff_m, 0.10)
+    # The part rests on the enclosure's table, so collision checks need it.
+    self.assertEqual(config.robot.enclosure_object_name, "enclosure")
 
   def test_shipped_configs_select_the_cuboid_center_planner(self):
     for path in (

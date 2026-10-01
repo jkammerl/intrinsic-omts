@@ -191,6 +191,10 @@ class CycleConfig:
       return_shift: Optional configuration for applying a randomized positional
         shift when returning the workpiece. If None, the object is placed at
         the exact view frame location.
+      return_standoff_meters: Height in meters above `grasp` from which the
+        returned workpiece is lowered until it touches the infeed. Cells
+        whose grasps leave the part lower in the gripper than at the pick
+        need more than the default.
   """
 
   num_cycles: int
@@ -204,6 +208,7 @@ class CycleConfig:
   touchdown_timeout_seconds: float
   machining_timeout_seconds: float
   return_shift: "ReturnShiftConfig | None" = None
+  return_standoff_meters: float = 0.020
 
 
 @dataclasses.dataclass(frozen=True)
@@ -301,6 +306,7 @@ class AppConfig:
     """Returns compliant touchdown parameters for returning to the infeed."""
     return Touchdown(
       force_n=self.cycle.return_touchdown_force_newtons,
+      standoff_m=self.cycle.return_standoff_meters,
       timeout_s=self.cycle.touchdown_timeout_seconds,
       retract_after_m=0.0,
     )

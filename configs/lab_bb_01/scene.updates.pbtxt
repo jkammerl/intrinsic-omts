@@ -75,7 +75,9 @@ updates {
       position {
         x: 0.47
         y: 0.37
-        z: 0.7
+        # Above the table: the seated approach moves to 2 cm above this frame
+        # (pre_place_vise), then lowers the part until it touches the table.
+        z: 0.76
       }
       orientation {
         x: 0.7071

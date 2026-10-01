@@ -46,9 +46,14 @@ cycle:
   return_touchdown_force_newtons: 5.0
   touchdown_timeout_seconds: 20.0
   machining_timeout_seconds: 30.0
+  # After the unload regrasp, the part sits lower in the gripper than at the
+  # pick: lower it onto the infeed from higher up.
+  return_standoff_meters: 0.10
+  # Around the infeed position of the part (scene.updates.pbtxt), within reach
+  # of the robot and in the camera's view.
   return_shift:
-    center_x: 0.5
-    center_y: 0.0
+    center_x: 0.25
+    center_y: 0.25
     bounds_x: 0.1
     bounds_y: 0.1
     bounds_rz_degrees: 20.0
